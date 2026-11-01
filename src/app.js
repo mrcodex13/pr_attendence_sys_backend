@@ -68,6 +68,10 @@ function createApp({
     res.json({ status: 'ok' })
   })
 
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok' })
+  })
+
   app.get('/api/v1/health/live', (req, res) => {
     res.json({ data: { status: 'ok' }, meta: { requestId: req.requestId } })
   })

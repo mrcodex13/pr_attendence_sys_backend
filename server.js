@@ -18,8 +18,8 @@ async function start() {
   const stopReportScheduler = config.smtpHost
     ? startReportScheduler({ mailer: createMailer(config), logger: console })
     : () => {}
-  const server = app.listen(config.port, () => {
-    console.info(JSON.stringify({ level: 'info', event: 'server_started', port: config.port, environment: config.nodeEnv }))
+  const server = app.listen(config.port, '0.0.0.0', () => {
+    console.info(JSON.stringify({ level: 'info', event: 'server_started', port: config.port, host: '0.0.0.0', environment: config.nodeEnv }))
   })
 
   let shuttingDown = false

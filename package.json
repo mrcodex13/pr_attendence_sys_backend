@@ -1,6 +1,9 @@
 {
   "name": "pr_attendence_sys_backend",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "description": "",
   "main": "server.js",
   "scripts": {

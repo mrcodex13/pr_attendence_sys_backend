@@ -8,7 +8,7 @@ function parseConfig(env = process.env) {
     throw new Error('NODE_ENV must be development, test, or production.')
   }
 
-  const rawPort = env.PORT || '5000'
+  const rawPort = env.PORT || '8000'
   const port = Number(rawPort)
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('PORT must be an integer between 1 and 65535.')
@@ -22,9 +22,10 @@ function parseConfig(env = process.env) {
     throw new Error('MONGODB_URI must use the mongodb:// or mongodb+srv:// scheme.')
   }
 
-  const rawOrigins = env.CORS_ORIGINS || 'http://localhost:5173'
-  if (nodeEnv === 'production' && !env.CORS_ORIGINS) {
-    throw new Error('CORS_ORIGINS must be configured in production.')
+  const configuredOrigins = env.ALLOWED_ORIGINS || env.CORS_ORIGINS
+  const rawOrigins = configuredOrigins || 'http://localhost:5173'
+  if (nodeEnv === 'production' && !configuredOrigins) {
+    throw new Error('ALLOWED_ORIGINS must be configured in production.')
   }
   const corsOrigins = rawOrigins.split(',').map((value) => value.trim()).filter(Boolean)
   if (corsOrigins.length === 0 || corsOrigins.some((origin) => {
@@ -35,7 +36,7 @@ function parseConfig(env = process.env) {
       return true
     }
   })) {
-    throw new Error('CORS_ORIGINS must be a comma-separated list of HTTP(S) origins without paths.')
+    throw new Error('ALLOWED_ORIGINS must be a comma-separated list of HTTP(S) origins without paths.')
   }
 
   const accessTokenSecret = env.ACCESS_TOKEN_SECRET?.trim() || null

@@ -32,6 +32,14 @@ test('liveness is independent of database readiness', async () => {
   assert.equal(body.meta.requestId, response.headers.get('x-request-id'))
 })
 
+test('Render health check is public and returns the expected response', async () => {
+  const response = await fetch(`${baseUrl}/health`)
+  const body = await response.json()
+
+  assert.equal(response.status, 200)
+  assert.deepEqual(body, { status: 'ok' })
+})
+
 test('readiness reports unavailable required services', async () => {
   const response = await fetch(`${baseUrl}/api/v1/health/ready`)
   const body = await response.json()
@@ -82,12 +90,17 @@ test('disallowed browser origins are rejected with a request ID', async () => {
 
 test('production configuration requires a database and explicit CORS origins', () => {
   assert.throws(() => parseConfig({ NODE_ENV: 'production' }), /MONGODB_URI is required/)
-  assert.throws(() => parseConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://localhost/test' }), /CORS_ORIGINS must be configured/)
+  assert.throws(() => parseConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://localhost/test' }), /ALLOWED_ORIGINS must be configured/)
 })
 
 test('configuration rejects invalid ports and non-origin CORS values', () => {
   assert.throws(() => parseConfig({ PORT: '70000' }), /PORT must be an integer/)
-  assert.throws(() => parseConfig({ CORS_ORIGINS: 'http://localhost:5173/path' }), /CORS_ORIGINS must be/)
+  assert.throws(() => parseConfig({ ALLOWED_ORIGINS: 'http://localhost:5173/path' }), /ALLOWED_ORIGINS must be/)
+  assert.throws(() => parseConfig({
+    NODE_ENV: 'production',
+    MONGODB_URI: 'mongodb://localhost/test',
+    ALLOWED_ORIGINS: '*',
+  }), /ALLOWED_ORIGINS must be/)
   assert.throws(() => parseConfig({ ACCESS_TOKEN_TTL: 'not-a-duration' }), /ACCESS_TOKEN_TTL must use/)
   assert.throws(() => parseConfig({ DEVICE_SECRET_ENCRYPTION_KEY: 'too-short' }), /DEVICE_SECRET_ENCRYPTION_KEY must be at least 32 characters/)
   assert.throws(() => parseConfig({ FACE_TEMPLATE_ENCRYPTION_KEY: 'too-short' }), /FACE_TEMPLATE_ENCRYPTION_KEY must be at least 32 characters/)
@@ -132,6 +145,16 @@ test('development password-reset links require an explicit development-only flag
     MAIL_FROM: 'attendance@example.edu',
     DEV_PASSWORD_RESET_ENABLED: 'true',
   }).devPasswordResetEnabled, false)
+})
+
+test('configuration supports Render ALLOWED_ORIGINS and defaults the local port to 8000', () => {
+  const config = parseConfig({
+    NODE_ENV: 'development',
+    ALLOWED_ORIGINS: 'https://attendance.example.edu,https://admin.example.edu',
+  })
+
+  assert.equal(config.port, 8000)
+  assert.deepEqual(config.corsOrigins, ['https://attendance.example.edu', 'https://admin.example.edu'])
 })
 
 test('production configuration requires strong token and mail delivery settings', () => {
