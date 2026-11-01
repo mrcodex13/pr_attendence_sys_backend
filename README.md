@@ -27,7 +27,9 @@ firmware build.
 
 Existing encrypted templates can be moved from MongoDB with `npm run migrate:camera-templates` after applying the SQL migration and configuring both database connections. The script verifies every copied ciphertext before deleting the MongoDB source rows. Do not rotate or lose the face-template encryption key without a template migration plan.
 
-In development, the server starts for local liveness checks even if MongoDB is not configured or is temporarily unreachable. When a URI is configured, it retries failed connections every five seconds; `/api/v1/health/ready` returns `503` until the database connects. Production startup requires MongoDB and Supabase settings, explicit `ALLOWED_ORIGINS` (or the legacy `CORS_ORIGINS` alias), an access-token secret of at least 32 characters, and SMTP settings for password-reset email. The confirmed tenancy model is multiple organizations per deployment.
+In development, the server starts for local liveness checks even if MongoDB is not configured or is temporarily unreachable. When a URI is configured, it retries failed connections every five seconds; `/api/v1/health/ready` returns `503` until the database connects. Production startup requires MongoDB and Supabase settings, explicit `ALLOWED_ORIGINS` (or the legacy `CORS_ORIGINS` alias), and an access-token secret of at least 32 characters. SMTP is optional. The confirmed tenancy model is multiple organizations per deployment.
+
+Email is disabled unless `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and `MAIL_FROM` are all set. When disabled, the app logs one startup warning; password reset by email and scheduled report delivery are unavailable. Invitation codes are still generated and shown to authorized administrators to share manually, and in-app notifications continue to work. To enable email later, add all four SMTP values (and optionally `SMTP_PORT` and `SMTP_SECURE`) to the backend environment, then restart or redeploy the service.
 
 ## Deploying to Render
 
@@ -38,7 +40,7 @@ This backend is an Express/Node.js service and can be deployed from the included
 - **Health check:** `GET /health` (public, returns `{"status":"ok"}`)
 - **Runtime:** Node.js 20.19 or newer; Render injects `PORT`, and the server binds to `0.0.0.0`.
 
-Create a Render Blueprint from the repository containing this file, then enter the required values for all `sync: false` variables in Render's environment settings. Set `ALLOWED_ORIGINS` to the exact HTTPS origin(s) serving the frontend, comma-separated without paths; do not use `*`. Set `APP_URL` to the public frontend origin. `CORS_ORIGINS` remains accepted as a backwards-compatible alias, but new deployments should use `ALLOWED_ORIGINS`.
+Create a Render Blueprint from the repository containing this file, then enter the required values for all `sync: false` variables in Render's environment settings. Set `ALLOWED_ORIGINS` to the exact HTTPS origin(s) serving the frontend, comma-separated without paths; do not use `*`. Set `APP_URL` to the public frontend origin. `CORS_ORIGINS` remains accepted as a backwards-compatible alias, but new deployments should use `ALLOWED_ORIGINS`. SMTP variables are intentionally not required by the Blueprint; add all four required SMTP values later if email delivery is available.
 
 ### Database and first-time setup
 
@@ -54,6 +56,10 @@ The frontend uses relative `/api/v1` requests. In development, Vite proxies thes
 
 The current frontend stores bearer access and refresh tokens in browser local storage; it does not use authentication cookies. Consequently, `HttpOnly`, `Secure`, and `SameSite` cookie attributes do not apply to the existing auth flow. Moving authentication to HttpOnly cookies would require a coordinated frontend/backend and CSRF-protection change; it is not silently enabled by this deployment setup.
 
+### Optional email delivery
+
+The service starts without SMTP configuration. Without all four of `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and `MAIL_FROM`, password-reset email and scheduled report delivery are disabled; the forgot-password page shows a clear setup message, and scheduled-report creation returns `EMAIL_NOT_CONFIGURED`. Invitation codes remain available in the admin UI for manual sharing, and app notifications are in-app rather than email. Add the four values to the Render service environment when using an SMTP provider that permits outbound connections, then redeploy.
+
 ### Render free-tier and AMB82 limitations
 
 Render's free web service can sleep after inactivity and has limited CPU/RAM. It is suitable for trying the dashboard/API, not for guaranteed always-on attendance processing. The backend does not persist application records or face templates to its local filesystem: records use MongoDB and encrypted face templates use Supabase. Any runtime state held in memory is lost on restart.
@@ -67,7 +73,7 @@ Face-api.js models are loaded by the browser camera workflow, not at backend sta
 - `npm test` — run the backend tests.
 - `npm start` — start the API without the development file watcher.
 
-Implemented business APIs include authentication and organization membership, user administration, organization settings, sites, groups, people, schedules, attendance corrections, leave, dashboard aggregates, SSE live replay, notifications, audit reads, privacy deletion-request review, CSV/XLSX exports, and scheduled SMTP report delivery. Device APIs now support tenant-scoped provisioning, encrypted one-time secrets, HMAC-signed requests, heartbeat/config, scan ingestion, command acknowledgements, and consent-gated enrollment state. The AMB82-Mini firmware must implement the documented protocol and be validated on the actual board before device attendance is considered operational. Automated retention/purge jobs remain disabled until custom retention periods and legal policy are approved; profile-photo upload remains deferred pending storage decisions.
+Implemented business APIs include authentication and organization membership, user administration, organization settings, sites, groups, people, schedules, attendance corrections, leave, dashboard aggregates, SSE live replay, in-app notifications, audit reads, privacy deletion-request review, CSV/XLSX exports, and optional scheduled SMTP report delivery. Device APIs now support tenant-scoped provisioning, encrypted one-time secrets, HMAC-signed requests, heartbeat/config, scan ingestion, command acknowledgements, and consent-gated enrollment state. The AMB82-Mini firmware must implement the documented protocol and be validated on the actual board before device attendance is considered operational. Automated retention/purge jobs remain disabled until custom retention periods and legal policy are approved; profile-photo upload remains deferred pending storage decisions.
 
 ### Device API setup
 
@@ -87,8 +93,6 @@ For the local attendance demo roster, run `npm run seed:demo-accounts` from this
 
 Access tokens use `Authorization: Bearer <token>`. Refresh tokens rotate and are stored hashed. User identities have a global unique email and separate role/group/status membership per organization. Organization users with multiple active memberships select a workspace after validating credentials. Platform super admins instead receive a tenant-independent session and go directly to the platform organization console.
 
-Password reset email requires SMTP settings in production. During local development without SMTP, the endpoint returns a non-enumerating response, logs that delivery is unavailable, and does not log the reset token.
+Without SMTP, password-reset requests in production return a non-enumerating `EMAIL_NOT_CONFIGURED` response. For local development, set `DEV_PASSWORD_RESET_ENABLED=true` to show a one-time reset link only to loopback callers; the startup warning does not include credentials or reset tokens.
 
 For local demos without SMTP, set `DEV_PASSWORD_RESET_ENABLED=true` while `NODE_ENV=development`. The forgot-password page will show a one-time reset link only for requests received over loopback. The link expires after one hour; the current password is never retrieved or displayed. This option is ignored in test and production environments.
-#   p r _ a t t e n d e n c e _ s y s _ b a c k e n d  
- 

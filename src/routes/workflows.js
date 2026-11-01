@@ -747,9 +747,9 @@ function createWorkflowsRouter({ config }) {
 
   router.post('/reports/schedules', authenticate, requirePermission('reports.schedule'), async (req, res) => {
     requireReportAdmin(req)
-    if (!config.smtpHost) {
+    if (!config.mailEnabled) {
       return res.status(503).json({
-        error: { code: 'EMAIL_NOT_CONFIGURED', message: 'SMTP email delivery must be configured before creating scheduled reports.' },
+        error: { code: 'EMAIL_NOT_CONFIGURED', message: 'Email is not set up. Configure SMTP before creating scheduled reports.' },
         meta: { requestId: req.requestId },
       })
     }

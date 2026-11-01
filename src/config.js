@@ -99,11 +99,9 @@ function parseConfig(env = process.env) {
   const smtpUser = env.SMTP_USER?.trim() || null
   const smtpPassword = env.SMTP_PASSWORD || null
   const mailFrom = env.MAIL_FROM?.trim() || null
-  if (smtpHost && (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535)) {
+  const mailEnabled = Boolean(smtpHost && smtpUser && smtpPassword && mailFrom)
+  if (mailEnabled && (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535)) {
     throw new Error('SMTP_PORT must be an integer between 1 and 65535.')
-  }
-  if (nodeEnv === 'production' && (!smtpHost || !smtpUser || !smtpPassword || !mailFrom)) {
-    throw new Error('SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and MAIL_FROM are required in production.')
   }
 
   const appUrl = env.APP_URL || 'http://localhost:5173'
@@ -132,6 +130,7 @@ function parseConfig(env = process.env) {
     amb82RtspUrl,
     ffmpegPath,
     refreshTokenDays,
+    mailEnabled,
     smtpHost,
     smtpPort,
     smtpSecure: env.SMTP_SECURE === 'true',

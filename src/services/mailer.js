@@ -1,13 +1,20 @@
 const nodemailer = require('nodemailer')
 
-function createMailer(config, logger = console) {
-  if (!config.smtpHost) {
+function createMailer(config) {
+  if (!config.mailEnabled) {
+    const emailNotConfigured = () => {
+      const error = new Error('Email is not set up. Ask your administrator for help.')
+      error.code = 'EMAIL_NOT_CONFIGURED'
+      error.status = 503
+      return error
+    }
+
     return {
       async sendPasswordReset() {
-        logger.warn(JSON.stringify({ level: 'warn', event: 'password_reset_email_not_configured' }))
+        throw emailNotConfigured()
       },
       async sendReport() {
-        throw new Error('SMTP report delivery is not configured.')
+        throw emailNotConfigured()
       },
     }
   }

@@ -46,7 +46,7 @@ Login data: `{ "user": { "id", "name", "email", "role", "groupIds" }, "accessTok
 
 Multi-organization login behavior: organization users with multiple active memberships must choose one after credential validation. Platform super admins instead receive a tenant-independent platform session and do not choose an organization. Platform sessions have no `organizationId` and must omit `X-Organization-Id`; they can access only platform-management routes.
 
-For organization sessions, login accepts an optional `organizationId`; if omitted, the server requires organization selection when multiple active memberships exist and otherwise selects the sole active membership. The returned user includes the selected `organizationId` and active organization memberships. Platform super admins instead receive a tenant-independent session with no organization list or organization claim. Protected organization requests use a bearer token; an optional `X-Organization-Id` must match the tenant bound to an organization token and must be omitted for platform tokens. Refresh tokens are opaque, stored hashed, and rotated on use. Passwords are bcrypt-hashed and must be 12?128 characters with uppercase, lowercase, number, and symbol characters. Reset tokens are one-time, hashed, and expire after one hour. Production password-reset delivery requires SMTP configuration.
+For organization sessions, login accepts an optional `organizationId`; if omitted, the server requires organization selection when multiple active memberships exist and otherwise selects the sole active membership. The returned user includes the selected `organizationId` and active organization memberships. Platform super admins instead receive a tenant-independent session with no organization list or organization claim. Protected organization requests use a bearer token; an optional `X-Organization-Id` must match the tenant bound to an organization token and must be omitted for platform tokens. Refresh tokens are opaque, stored hashed, and rotated on use. Passwords are bcrypt-hashed and must be 12?128 characters with uppercase, lowercase, number, and symbol characters. Reset tokens are one-time, hashed, and expire after one hour. SMTP is optional; when disabled, password-reset requests return `EMAIL_NOT_CONFIGURED` without revealing whether the account exists.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -156,7 +156,7 @@ Device health uses heartbeat age: `ONLINE` under 10 minutes, `STALE` from 10 thr
 | GET | `/api/v1/reports/exceptions` | Exception report |
 | GET | `/api/v1/reports/device-health` | Device health report |
 | GET | `/api/v1/reports/attendance/export` | Download filtered server-generated CSV or XLSX |
-| GET/POST | `/api/v1/reports/schedules` | List/create attendance report schedule; requires active organization-member recipients and SMTP |
+| GET/POST | `/api/v1/reports/schedules` | List/create attendance report schedule; creation requires active organization-member recipients and configured SMTP |
 | GET/PATCH/DELETE | `/api/v1/reports/schedules/:id` | Inspect delivery attempts, pause/resume, or archive a report schedule |
 | GET | `/api/v1/audit` | Authorized, paginated audit history |
 | GET/POST | `/api/v1/privacy/deletion-requests` | List/request privacy deletion operation |
@@ -169,7 +169,7 @@ CSV and XLSX attendance export, scheduled email delivery, and request approval a
 
 - [x] Multi-organization tenancy in one deployment; tenant-owned resources require an organization reference and tenant-scoped queries.
 - [x] MongoDB Atlas is the target database provider; production operations, backup/restore, and exact cluster configuration remain to be established.
-- [x] SMTP email delivery selected for scheduled reports. Optional photo/file storage remains undecided.
+- [x] Optional SMTP email delivery supports password resets and scheduled reports. Invitation codes are returned for authorized admins to share manually; notifications are in-app. Optional photo/file storage remains undecided.
 - [x] Backend device protocol: signed requests, heartbeat/config, scan ingestion, command delivery/acknowledgement, enrollment lifecycle, idempotency, clock window, and retry rules are specified and implemented; actual-board firmware compatibility remains unverified.
 - [x] Bearer access/refresh token API authentication. Token storage/rotation/expiry details remain to be finalized during auth implementation.
 - [x] CSV and XLSX attendance exports; Server-Sent Events selected for live event delivery. PDF is not a current requirement.

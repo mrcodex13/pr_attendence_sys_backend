@@ -7,6 +7,14 @@ const { startReportScheduler } = require('./src/services/reportScheduler')
 const DATABASE_RETRY_DELAY_MS = 5000
 
 async function start() {
+  if (!config.mailEnabled) {
+    console.warn(JSON.stringify({
+      level: 'warn',
+      event: 'email_delivery_disabled',
+      message: 'SMTP is not fully configured; password reset emails and scheduled report delivery are disabled.',
+    }))
+  }
+
   if (config.mongoUri && config.nodeEnv === 'production') {
     await mongoose.connect(config.mongoUri)
     console.info(JSON.stringify({ level: 'info', event: 'database_connected' }))
@@ -15,7 +23,7 @@ async function start() {
   }
 
   const app = createApp({ config })
-  const stopReportScheduler = config.smtpHost
+  const stopReportScheduler = config.mailEnabled
     ? startReportScheduler({ mailer: createMailer(config), logger: console })
     : () => {}
   const server = app.listen(config.port, '0.0.0.0', () => {

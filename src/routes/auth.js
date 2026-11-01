@@ -40,7 +40,7 @@ function createAuthRouter({
   authenticate = createAuthenticate({ config }),
 }) {
   const router = express.Router()
-  const sendPasswordReset = mailer || require('../services/mailer').createMailer(config, logger)
+  const sendPasswordReset = mailer || require('../services/mailer').createMailer(config)
   const rateLimitHandler = (_req, _res, next) => next(new HttpError(429, 'RATE_LIMITED', 'Too many attempts. Try again later.'))
   const loginLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -392,6 +392,18 @@ function createAuthRouter({
   })
 
   router.post('/forgot-password', resetLimit, async (req, res) => {
+    const canIssueDevelopmentReset = config.nodeEnv === 'development' &&
+      config.devPasswordResetEnabled
+    if (!config.mailEnabled && !canIssueDevelopmentReset) {
+      return res.status(503).json({
+        error: {
+          code: 'EMAIL_NOT_CONFIGURED',
+          message: 'Email is not set up. Contact your platform administrator for help resetting your password.',
+        },
+        meta: { requestId: req.requestId },
+      })
+    }
+
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
     let developmentResetUrl
     if (email && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -417,7 +429,7 @@ function createAuthRouter({
               level: 'error',
               event: 'password_reset_email_failed',
               requestId: req.requestId,
-              message: error instanceof Error ? error.message : 'Unknown error',
+              error: error instanceof Error ? error.name : 'Unknown error',
             }))
           }
         }

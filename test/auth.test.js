@@ -41,6 +41,7 @@ const config = {
   corsOrigins: ['http://localhost:5173'],
   jsonBodyLimit: '1mb',
   appUrl: 'http://localhost:5173',
+  mailEnabled: false,
   smtpHost: null,
   faceTemplateEncryptionKey: 'test-face-template-encryption-key-32-chars',
 }
@@ -1931,7 +1932,31 @@ test('CSV import can assign uploaded rows to a selected active group', async () 
   assert.equal(person.groupId.toString(), group._id.toString())
 })
 
-test('password reset is one-time, changes the password, and revokes sessions', async () => {
+test('password reset reports disabled email without revealing account existence', async () => {
+  await createAccount()
+  const known = await request('/api/v1/auth/forgot-password', {
+    method: 'POST',
+    body: { email: 'admin@example.edu' },
+  })
+  const unknown = await request('/api/v1/auth/forgot-password', {
+    method: 'POST',
+    body: { email: 'missing@example.edu' },
+  })
+
+  assert.equal(known.response.status, 503)
+  assert.equal(known.body.error.code, 'EMAIL_NOT_CONFIGURED')
+  assert.match(known.body.error.message, /Email is not set up/)
+  assert.deepEqual(unknown.body.error, known.body.error)
+  const user = await User.findOne({ email: 'admin@example.edu' }).select('+passwordResetHash')
+  assert.equal(user.passwordResetHash, undefined)
+  assert.equal(resetToken, null)
+})
+
+test('password reset is one-time, changes the password, and revokes sessions', async (t) => {
+  config.mailEnabled = true
+  t.after(() => {
+    config.mailEnabled = false
+  })
   const { organization } = await createAccount()
   const session = await login('admin@example.edu', organization._id.toString())
 

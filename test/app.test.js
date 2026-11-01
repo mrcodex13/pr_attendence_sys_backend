@@ -2,6 +2,7 @@ const assert = require('node:assert/strict')
 const { after, before, test } = require('node:test')
 const { createApp } = require('../src/app')
 const { parseConfig } = require('../src/config')
+const { createMailer } = require('../src/services/mailer')
 
 const config = {
   nodeEnv: 'test',
@@ -38,6 +39,18 @@ test('Render health check is public and returns the expected response', async ()
 
   assert.equal(response.status, 200)
   assert.deepEqual(body, { status: 'ok' })
+})
+
+test('disabled mailer reports unavailable email delivery without logging secrets', async () => {
+  const mailer = createMailer({ mailEnabled: false })
+  await assert.rejects(mailer.sendPasswordReset('person@example.edu', 'private-token'), {
+    code: 'EMAIL_NOT_CONFIGURED',
+    status: 503,
+  })
+  await assert.rejects(mailer.sendReport({ recipients: [], name: 'Report', format: 'CSV', buffer: Buffer.alloc(0) }), {
+    code: 'EMAIL_NOT_CONFIGURED',
+    status: 503,
+  })
 })
 
 test('readiness reports unavailable required services', async () => {
@@ -157,7 +170,7 @@ test('configuration supports Render ALLOWED_ORIGINS and defaults the local port 
   assert.deepEqual(config.corsOrigins, ['https://attendance.example.edu', 'https://admin.example.edu'])
 })
 
-test('production configuration requires strong token and mail delivery settings', () => {
+test('production configuration requires strong token but permits disabled email', () => {
   const required = {
     NODE_ENV: 'production',
     MONGODB_URI: 'mongodb://localhost/test',
@@ -170,9 +183,40 @@ test('production configuration requires strong token and mail delivery settings'
     ...required,
     ACCESS_TOKEN_SECRET: 'a'.repeat(32),
   }), /FACE_TEMPLATE_ENCRYPTION_KEY is required/)
+  const withoutEmail = parseConfig({
+    ...required,
+    ACCESS_TOKEN_SECRET: 'a'.repeat(32),
+    FACE_TEMPLATE_ENCRYPTION_KEY: 'f'.repeat(32),
+  })
+  assert.equal(withoutEmail.mailEnabled, false)
+
+  const withPartialEmail = parseConfig({
+    ...required,
+    ACCESS_TOKEN_SECRET: 'a'.repeat(32),
+    FACE_TEMPLATE_ENCRYPTION_KEY: 'f'.repeat(32),
+    SMTP_HOST: 'smtp.example.edu',
+    SMTP_USER: 'demo-user',
+  })
+  assert.equal(withPartialEmail.mailEnabled, false)
+
+  const withEmail = parseConfig({
+    ...required,
+    ACCESS_TOKEN_SECRET: 'a'.repeat(32),
+    FACE_TEMPLATE_ENCRYPTION_KEY: 'f'.repeat(32),
+    SMTP_HOST: 'smtp.example.edu',
+    SMTP_USER: 'demo-user',
+    SMTP_PASSWORD: 'demo-password',
+    MAIL_FROM: 'attendance@example.edu',
+  })
+  assert.equal(withEmail.mailEnabled, true)
   assert.throws(() => parseConfig({
     ...required,
     ACCESS_TOKEN_SECRET: 'a'.repeat(32),
     FACE_TEMPLATE_ENCRYPTION_KEY: 'f'.repeat(32),
-  }), /SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and MAIL_FROM/)
+    SMTP_HOST: 'smtp.example.edu',
+    SMTP_USER: 'demo-user',
+    SMTP_PASSWORD: 'demo-password',
+    MAIL_FROM: 'attendance@example.edu',
+    SMTP_PORT: 'invalid',
+  }), /SMTP_PORT must be an integer/)
 })
