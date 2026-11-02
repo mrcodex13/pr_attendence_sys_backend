@@ -10,6 +10,7 @@
     "test": "node --test",
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "camera:bridge": "node scripts/amb82CameraBridge.js",
     "seed:admin": "node scripts/seedAdmin.js",
     "seed:demo-accounts": "node scripts/seedDemoAccounts.js",
     "migrate:camera-templates": "node scripts/migrateCameraTemplatesToSupabase.js"

@@ -25,6 +25,41 @@ be able to reach each other over the network, and the camera firmware must have
 RTSP streaming enabled. RTSP path and authentication details depend on the
 firmware build.
 
+#### Use an AMB82 with the deployed website
+
+The Render backend cannot reach a camera on a user's private Wi-Fi. To keep the
+AMB82 firmware unchanged and use the deployed website, run the local connector
+on the Windows laptop that can already open the camera stream in VLC:
+
+1. Install FFmpeg on that laptop and ensure `ffmpeg.exe` is on `PATH` (or set
+   `FFMPEG_PATH` in the backend `.env` file).
+2. From this backend repository, run `npm run camera:bridge`. This local-only
+   service listens on `127.0.0.1:8765`; it does not expose RTSP or listen on the
+   network. Keep the terminal open while using attendance.
+3. Sign into the deployed website on the same laptop, select **AMB82-Mini
+   (Local)**, paste the exact RTSP URL that works in VLC, and choose **Save
+   URL**. The browser may ask permission to connect to a local device; allow it.
+4. Start the camera and scan. Face recognition runs in that browser, while
+   attendance records continue to be sent to the deployed API.
+
+The RTSP URL is sent only to the loopback connector, not saved in Render or
+logged by the connector. The connector uses the website origins in
+`CAMERA_BRIDGE_ALLOWED_ORIGINS` (or `ALLOWED_ORIGINS`/`CORS_ORIGINS` from the
+backend `.env`). If the deployed site uses a different origin, set
+`CAMERA_BRIDGE_ALLOWED_ORIGINS` before running the command, for example in
+PowerShell:
+
+```powershell
+$env:CAMERA_BRIDGE_ALLOWED_ORIGINS = "https://your-actual-frontend.example"
+npm run camera:bridge
+```
+
+By default, the connector allows the existing Vercel site origin and
+`http://localhost:5173`. Do not add wildcard origins. The connector needs Node
+dependencies installed in this repository and FFmpeg on the laptop. Press
+Ctrl+C in its terminal when finished. If it is not running, the website cannot
+read the local camera even if VLC is playing.
+
 Existing encrypted templates can be moved from MongoDB with `npm run migrate:camera-templates` after applying the SQL migration and configuring both database connections. The script verifies every copied ciphertext before deleting the MongoDB source rows. Do not rotate or lose the face-template encryption key without a template migration plan.
 
 In development, the server starts for local liveness checks even if MongoDB is not configured or is temporarily unreachable. When a URI is configured, it retries failed connections every five seconds; `/api/v1/health/ready` returns `503` until the database connects. Production startup requires MongoDB and Supabase settings, explicit `ALLOWED_ORIGINS` (or the legacy `CORS_ORIGINS` alias), and an access-token secret of at least 32 characters. SMTP is optional. The confirmed tenancy model is multiple organizations per deployment.
